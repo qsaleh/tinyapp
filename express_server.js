@@ -12,11 +12,11 @@ app.set("view engine", "ejs");
 
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
+  i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
 
-const users = { 
+let users = { 
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
@@ -37,31 +37,31 @@ app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 })
 
-app.post("/urls", (req, res) => {
-  //console.log(req.body);  // Log the POST request body to the console
+app.post("/urls", (req, res) => {  
   let newID = generateRandomString();
-  {urlDatabase[newID] =  req.body.longURL};
-  //console.log("urlDatabase", urlDatabase);
-  let templateVars = { shortURL: newID, longURL: req.body.longURL };
+  urlDatabase[newID] = { longURL: req.body.longURL, userID: req.cookies['userId'].id};
+  let templateVars = { username: req.cookies['userId'], shortURL: newID, longURL: req.body.longURL };
   res.render("urls_show", templateVars);
-  // res.send("Ok");         // Respond with 'Ok' (we will replace this)
 });
 
 app.get("/urls/new", (req, res) => {
   let templateVars = { username: req.cookies['userId'], urls: urlDatabase };
-  console.log('req.cookies in urls new',req.cookies['username']);
   res.render("urls_new", templateVars);
+});
+
+app.post("/urls/new", (req, res) => {
+  let templateVars = { username: req.cookies['userId'], urls: urlDatabase };
+  res.render("urls_index", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
   let index = req.params.shortURL;
-  let templateVars = { shortURL: index, longURL: urlDatabase[index] };
+  let templateVars = { username: req.cookies['userId'], shortURL: index, longURL: urlDatabase[index] };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = { username: req.cookies['userId'], urls: urlDatabase };
-  console.log('req.cookies in urls', req.cookies['userId'])
+  let templateVars = { username: req.cookies['userId'], urls: filteredDatabase(req.cookies['userId'].id) };
   res.render("urls_index", templateVars);
 });
 
@@ -70,19 +70,18 @@ app.get("/u/:shortURL", (req, res) => {
   res.redirect(longURL);
 });
 
-app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  let templateVars = { urls: urlDatabase };
-  res.render("urls_index", templateVars); 
-});
-
 app.post('/urls/logout', (req, res) => {
   res.clearCookie('userId');
-  res.redirect("/urls");
+  res.redirect("/login");
+});
+
+app.post("/urls/:shortURL/delete", (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+  res.redirect("/urls"); 
 });
 
 app.get('/register', (req, res) => {
-  let templateVars = { username: req.cookies['username'], urls: urlDatabase };
+  let templateVars = { username: req.cookies['userId']};
   res.render("register", templateVars);
 });
 
@@ -90,6 +89,7 @@ app.post('/register', (req, res) => {
   const id = generateRandomString();
   const email = req.body['email'];
   const password = req.body['password'];
+  
   if (email === '' || password === ''){
     res.sendStatus(400);
   } else{
@@ -101,22 +101,18 @@ app.post('/register', (req, res) => {
 })
 
 app.get('/login', (req, res) => {
-  let templateVars = { username: req.cookies['username'], urls: urlDatabase };
+  let templateVars = { username: req.cookies['userId']};
   res.render("login", templateVars);
 });
 
 app.post('/login', (req, res) => {
-  console.log(users);
   const email = req.body['email'];
   const password = req.body['password'];
   if (!lookUpUserByEmail(email)){
-    console.log(lookUpUserByEmail(email));
     res.sendStatus(403);
   } else if (lookUpUserByEmail(email).password !== password) {
-    console.log('2');
     res.sendStatus(403);
   } else {
-    console.log('3');
   res.cookie('userId', lookUpUserByEmail(email).email);
   res.redirect("/urls");
   }
@@ -140,11 +136,22 @@ function generateRandomString() {
 
 function lookUpUserByEmail(emailInput){
   const obj = Object.values(users);
-  console.log('obj', obj);
-  for (let user in obj) {
-    if (obj[user].email === emailInput) {
-      console.log('obj[user].email', obj[user].email)
-      return obj[user];
-    } else return undefined;
+  for (let user of obj) {
+    if (user.email === emailInput) {
+      return user;
+    }
   }
+}
+
+const filteredDatabase = function(user){
+  const urlArr = Object.keys(urlDatabase);
+  let filteredDatabase = {};
+
+  for (let shortURL of urlArr) {
+    if (urlDatabase[shortURL].userID === user){
+      filteredDatabase[shortURL] = urlDatabase[shortURL].longURL;
+    }
+  }
+return filteredDatabase;
+
 }
