@@ -1,12 +1,19 @@
 const express = require("express");
-const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
 const bodyParser = require("body-parser");
 const app = express();
 const PORT = 8080; // default port 8080
 const bcrypt = require('bcrypt');
+const { lookUpUserByEmail } = require('./helpers');
 
 
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['minty'],
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
@@ -40,29 +47,29 @@ app.get("/urls.json", (req, res) => {
 
 app.post("/urls", (req, res) => {  
   let newID = generateRandomString();
-  urlDatabase[newID] = { longURL: req.body.longURL, userID: req.cookies['userId'].id};
-  let templateVars = { username: req.cookies['userId'], shortURL: newID, longURL: req.body.longURL };
+  urlDatabase[newID] = { longURL: req.body.longURL, userID: req.session.userId.id};
+  let templateVars = { username: req.session.userId, shortURL: newID, longURL: req.body.longURL };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  let templateVars = { username: req.cookies['userId'], urls: urlDatabase };
+  let templateVars = { username: req.session.userId, urls: urlDatabase };
   res.render("urls_new", templateVars);
 });
 
 app.post("/urls/new", (req, res) => {
-  let templateVars = { username: req.cookies['userId'], urls: urlDatabase };
+  let templateVars = { username: req.session.userId, urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
   let index = req.params.shortURL;
-  let templateVars = { username: req.cookies['userId'], shortURL: index, longURL: urlDatabase[index] };
+  let templateVars = { username: req.session.userId, shortURL: index, longURL: urlDatabase[index] };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = { username: req.cookies['userId'], urls: filteredDatabase(req.cookies['userId'].id) };
+  let templateVars = { username: users[req.session.userId], urls: filteredDatabase(req.session.userId.id) };
   res.render("urls_index", templateVars);
 });
 
@@ -72,7 +79,8 @@ app.get("/u/:shortURL", (req, res) => {
 });
 
 app.post('/urls/logout', (req, res) => {
-  res.clearCookie('userId');
+  // res.clearCookie('userId');
+  req.session = null;
   res.redirect("/login");
 });
 
@@ -82,7 +90,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  let templateVars = { username: req.cookies['userId']};
+  let templateVars = { username: req.session.userId};
   res.render("register", templateVars);
 });
 
@@ -96,26 +104,26 @@ app.post('/register', (req, res) => {
     res.sendStatus(400);
   } else{
   users[id] = {id, email, hashedPassword};
-  res.cookie('userId', users[id]);
+  req.session.userId = users[id];
   res.redirect("/urls");
   }
 
 })
 
 app.get('/login', (req, res) => {
-  let templateVars = { username: req.cookies['userId']};
+  let templateVars = { username: req.session.userId };
   res.render("login", templateVars);
 });
 
 app.post('/login', (req, res) => {
   const email = req.body['email'];
   const password = req.body['password'];
-  if (!lookUpUserByEmail(email)){
+  if (!lookUpUserByEmail(email, users)){
     res.sendStatus(403);
-  } else if (!bcrypt.compareSync(password, lookUpUserByEmail(email).hashedPassword)) {
+  } else if (!bcrypt.compareSync(password, lookUpUserByEmail(email, users).hashedPassword)) {
     res.sendStatus(403);
   } else {
-  res.cookie('userId', lookUpUserByEmail(email).email);
+  req.session.userId = lookUpUserByEmail(email, users).email;
   res.redirect("/urls");
   }
 
@@ -136,14 +144,6 @@ function generateRandomString() {
 
 }
 
-function lookUpUserByEmail(emailInput){
-  const obj = Object.values(users);
-  for (let user of obj) {
-    if (user.email === emailInput) {
-      return user;
-    }
-  }
-}
 
 const filteredDatabase = function(user){
   const urlArr = Object.keys(urlDatabase);
