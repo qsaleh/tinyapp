@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 const app = express();
 const PORT = 8080; // default port 8080
 const bcrypt = require('bcrypt');
-const { lookUpUserByEmail } = require('./helpers');
+const { lookUpUserByEmail} = require('./helpers');
 
 
 app.use(cookieSession({
@@ -38,7 +38,7 @@ let users = {
 }
 
 app.get("/", (req, res) => {
-  res.send('Hello!');
+  res.redirect("/login");
 });
 
 app.get("/urls.json", (req, res) => {
@@ -48,38 +48,43 @@ app.get("/urls.json", (req, res) => {
 app.post("/urls", (req, res) => {  
   let newID = generateRandomString();
   urlDatabase[newID] = { longURL: req.body.longURL, userID: req.session.userId.id};
-  let templateVars = { username: req.session.userId, shortURL: newID, longURL: req.body.longURL };
+  let templateVars = { username: req.session.userId.email, shortURL: newID, longURL: req.body.longURL };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  let templateVars = { username: req.session.userId, urls: urlDatabase };
+  let templateVars = { username: req.session.userId.email, urls: urlDatabase };
   res.render("urls_new", templateVars);
 });
 
 app.post("/urls/new", (req, res) => {
-  let templateVars = { username: req.session.userId, urls: urlDatabase };
+  let templateVars = { username: req.session.userId.email, urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  let index = req.params.shortURL;
-  let templateVars = { username: req.session.userId, shortURL: index, longURL: urlDatabase[index] };
+  const shortURL = req.params.shortURL;
+  const longURL = filteredDatabase(req.session.userId.id)[shortURL]
+  let templateVars = { username: req.session.userId.email, shortURL, longURL };
   res.render("urls_show", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = { username: users[req.session.userId], urls: filteredDatabase(req.session.userId.id) };
+  if (req.session.userId === undefined) {
+    res.redirect("/");
+  } else {
+  let templateVars = { username: req.session.userId.email, urls: filteredDatabase(req.session.userId.id) };
+  console.log('templateVars: ', templateVars);
   res.render("urls_index", templateVars);
+  }
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
-  res.redirect(longURL);
+  const shortURL = req.params.shortURL;
+  res.redirect(filteredDatabase(req.session.userId.id)[shortURL]);
 });
 
 app.post('/urls/logout', (req, res) => {
-  // res.clearCookie('userId');
   req.session = null;
   res.redirect("/login");
 });
@@ -133,19 +138,9 @@ app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
 
-function generateRandomString() {
-  let result           = '';
-  const characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  var charactersLength = characters.length;
-  for ( var i = 0; i < 6; i++ ) {
-     result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-
-}
-
 
 const filteredDatabase = function(user){
+  // function gets user object and removes URL database information 
   const urlArr = Object.keys(urlDatabase);
   let filteredDatabase = {};
 
@@ -156,4 +151,15 @@ const filteredDatabase = function(user){
   }
 return filteredDatabase;
 
+}
+
+function generateRandomString() {
+  // generates random 6 character alphanumeric string 
+  let result           = '';
+  const characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var charactersLength = characters.length;
+  for ( var i = 0; i < 6; i++ ) {
+     result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
 }

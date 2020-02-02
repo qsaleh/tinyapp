@@ -8,4 +8,6 @@ function lookUpUserByEmail(emailInput, database){
   }
 }
 
-module.exports = { lookUpUserByEmail };
+
+
+module.exports = { lookUpUserByEmail};
