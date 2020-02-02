@@ -107,7 +107,9 @@ app.post('/register', (req, res) => {
   
   if (email === '' || password === ''){
     res.sendStatus(400);
-  } else{
+  } else if (lookUpUserByEmail(email, users)){
+    res.sendStatus(400);
+  } else {
   users[id] = {id, email, hashedPassword};
   req.session.userId = users[id];
   res.redirect("/urls");
