@@ -37,6 +37,19 @@ let users = {
   }
 };
 
+let users = { 
+  "userRandomID": {
+    id: "userRandomID", 
+    email: "user@example.com", 
+    password: "purple-monkey-dinosaur"
+  },
+ "user2RandomID": {
+    id: "user2RandomID", 
+    email: "user2@example.com", 
+    password: "dishwasher-funk"
+  }
+}
+
 app.get("/", (req, res) => {
   res.redirect("/login");
 });
@@ -103,6 +116,12 @@ app.get("/u/:shortURL", (req, res) => {
 });
 
 app.post("/urls/logout", (req, res) => {
+  req.session = null;
+  res.redirect("/login");
+});
+
+app.post('/urls/logout', (req, res) => {
+  // res.clearCookie('userId');
   req.session = null;
   res.redirect("/login");
 });
