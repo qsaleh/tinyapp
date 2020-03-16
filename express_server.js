@@ -24,6 +24,7 @@ const urlDatabase = {
   i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
 
+
 let users = {
   userRandomID: {
     id: "userRandomID",
@@ -36,19 +37,6 @@ let users = {
     password: "dishwasher-funk"
   }
 };
-
-let users = { 
-  "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
-  },
- "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
-    password: "dishwasher-funk"
-  }
-}
 
 app.get("/", (req, res) => {
   res.redirect("/login");
@@ -73,8 +61,12 @@ app.post("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
+  if (!req.session.userId){
+    res.redirect("/login");
+  } else {
   const templateVars = { username: req.session.userId.email, urls: urlDatabase };
   res.render("urls_new", templateVars);
+  }
 });
 
 app.post("/urls/new", (req, res) => {
@@ -111,8 +103,15 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/u/:shortURL", (req, res) => {
+  // Get shortURL from params
   const shortURL = req.params.shortURL;
-  res.redirect(filteredDatabase(req.session.userId.id)[shortURL]);
+  if (shortURL in urlDatabase) {
+    // Use shortURL to find the corresponding longURL
+    const longURL = urlDatabase[shortURL].longURL;
+    res.redirect(longURL);
+  } else {
+    res.send("URL doesn't exist");
+  }
 });
 
 app.post("/urls/logout", (req, res) => {
@@ -121,7 +120,6 @@ app.post("/urls/logout", (req, res) => {
 });
 
 app.post('/urls/logout', (req, res) => {
-  // res.clearCookie('userId');
   req.session = null;
   res.redirect("/login");
 });
@@ -154,8 +152,12 @@ app.post("/register", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  const templateVars = { username: req.session.userId };
+  if (!req.session.userId){
+  const templateVars = { username: undefined };
   res.render("login", templateVars);
+  } else{
+  res.redirect("/urls");
+  }
 });
 
 app.post("/login", (req, res) => {
@@ -171,7 +173,7 @@ app.post("/login", (req, res) => {
   ) {
     res.sendStatus(403);
   } else {
-    req.session.userId = lookUpUserByEmail(email, users).email;
+    req.session.userId = lookUpUserByEmail(email, users)//.email;
     res.redirect("/urls");
   }
 });
